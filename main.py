@@ -5,8 +5,8 @@ from PIL import Image
 import os
 import requests
 
-MODEL_PATH = "64B30E-ENB0-tanamanHias-v3-1.h5"
-MODEL_URL = "https://huggingface.co/Phantamineom/TanamanHias/resolve/main/64B30E-ENB0-tanamanHias-v3-1.h5"
+MODEL_PATH = "64B30E-ENB0-tanamanHias-v3-1.keras"
+MODEL_URL = "https://huggingface.co/Phantamineom/TanamanHias/resolve/main/64B30E-ENB0-tanamanHias-v3-1.keras"
 CLASS_NAMES = ['Aglaonema', 'Daisy', 'Dandelion','Jasmine', 'Lavender', 'Lily Flower', 'Rose', 'Sunflower', 'Tulip']
 
 def download_model():
@@ -24,8 +24,7 @@ def download_model():
 def preprocess_image(img):
     img = img.convert('RGB')
     img = img.resize((224, 224))
-    img_array = np.array(img).astype(np.float32)   
-    img_array = img_array / 255.0                  # Normalisasi pixel 0-1
+    img_array = np.array(img).astype(np.float32)      
     img_array = np.expand_dims(img_array, axis=0)   
     return img_array
 
