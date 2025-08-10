@@ -19,12 +19,15 @@ CLASS_LABELS = [
     "Lily Flower", "Rose", "Sunflower", "Tulip"
 ]
 
-@st.cache_resource(show_spinner=False)
-def load_model(path: str):
-    if not os.path.exists(path):
-        st.error(f"File model tidak ditemukan: `{path}`. Pastikan nama file persis & ada di root repo.")
-        st.stop()
-    return tf.keras.models.load_model(path, compile=False)
+def load_model_safe(path):
+    try:
+        model = tf.keras.models.load_model(path, compile=False)
+        print("Model loaded successfully!")
+        print("Model input shape:", model.input_shape)
+        return model
+    except Exception as e:
+        print("Error loading model:", e)
+        raise e
 
 def preprocess_image(pil_img: Image.Image):
     img = pil_img.convert("RGB").resize((224, 224))
@@ -46,7 +49,7 @@ if uploaded is None:
     st.stop()
 
 # Load model SETELAH ada kebutuhan (lebih stabil)
-model = load_model(MODEL_PATH)
+model = load_model_safe(MODEL_PATH)
 
 img = Image.open(uploaded)
 st.image(img, caption="📷 Preview", width=320)
