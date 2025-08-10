@@ -6,97 +6,100 @@ from PIL import Image
 import numpy as np
 import requests
 
-# Import TensorFlow dengan penanganan error jika modul tidak ditemukan
+# Import TensorFlow dengan penanganan error
 try:
     import tensorflow as tf
 except ModuleNotFoundError:
     st.error(
         "Paket TensorFlow tidak ditemukan. "
-        "Pastikan `tensorflow-cpu==2.16.1` ada di file requirements.txt, "
+        "Pastikan `tensorflow` ada di file requirements.txt, "
         "lalu deploy ulang aplikasi Anda."
     )
     st.stop()
 
 # --- Konfigurasi ---
-
 MODEL_PATH = "64B30E-ENB0-tanamanHias-v3.keras"
 MODEL_URL = "https://huggingface.co/Phantamineom/TanamanHias/resolve/main/64B30E-ENB0-tanamanHias-v3.keras"
 CLASS_LABELS = [
     "Aglaonema", "Daisy", "Dandelion", "Jasmine", "Lavender",
-    "Lily Flower", "Rose", "Sunflower", "Tulip"]
-
-def download_model():
-    if not os.path.exists(MODEL_PATH):
-        with st.spinner("Mengunduh model dari Hugging Face..."):
-            r = requests.get(MODEL_URL, stream=True)
-            if r.status_code == 200:
-                with open(MODEL_PATH, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
-            else:
-                st.error("Gagal mengunduh model.")
-                st.stop()
-
-
-
+    "Lily Flower", "Rose", "Sunflower", "Tulip"
+]
 
 # --- Fungsi-Fungsi ---
 
+def download_model(url, path):
+    """
+    Mengunduh file model dari URL jika belum ada di path lokal.
+    """
+    if not os.path.exists(path):
+        with st.spinner(f"Mengunduh model dari Hugging Face... (ini hanya terjadi sekali)"):
+            try:
+                r = requests.get(url, stream=True)
+                r.raise_for_status()  # Akan error jika status code bukan 2xx
+                with open(path, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                st.success("Model berhasil diunduh!")
+            except requests.exceptions.RequestException as e:
+                st.error(f"Gagal mengunduh model: {e}")
+                st.stop()
+
 def load_model_safe(path):
     """
-    Memuat model Keras dengan aman dan menampilkan pesan status.
+    Memuat model Keras dengan aman.
     """
     try:
-        # Menggunakan compile=False karena model hanya untuk inferensi
         model = tf.keras.models.load_model(path, compile=False)
-        print("✅ Model berhasil dimuat!")
-        # Menampilkan input shape yang diharapkan model untuk debugging
-        print(f"ℹ️ Model input shape: {model.input_shape}")
         return model
     except Exception as e:
-        st.error(f"Gagal memuat model. Pastikan file '{path}' ada di direktori yang sama.")
-        st.error(f"Detail Error: {e}")
-        # Menghentikan eksekusi jika model gagal dimuat
+        st.error(f"Gagal memuat model dari file: {e}")
         st.stop()
 
 def preprocess_image(pil_img: Image.Image):
     """
-    Mengubah ukuran gambar menjadi 224x224, normalisasi, dan menyesuaikan dimensi.
-    Fungsi ini sekarang menerima gambar yang sudah dijamin RGB.
+    Mengubah ukuran, normalisasi, dan memastikan gambar SELALU 3 channel.
+    Ini adalah fungsi "anti gagal" untuk mengatasi ValueError.
     """
-    # Resize gambar
-    img = pil_img.resize((224, 224))
-    # Konversi ke array NumPy dan normalisasi piksel ke rentang [0, 1]
-    arr = np.asarray(img, dtype=np.float32) / 255.0
-    # Tambahkan dimensi batch (dari (224, 224, 3) menjadi (1, 224, 224, 3))
+    # 1. Coba konversi ke RGB dan resize
+    img = pil_img.convert("RGB").resize((224, 224))
+    
+    # 2. Konversi ke array NumPy
+    arr = np.asarray(img, dtype=np.float32)
+
+    # 3. Lapisan Pertahanan: Pastikan array memiliki 3 channel
+    if arr.ndim == 2:  # Jika gambar grayscale (hanya 2 dimensi)
+        arr = np.expand_dims(arr, axis=-1) # Ubah ke (H, W, 1)
+    
+    if arr.shape[-1] == 1:  # Jika gambar punya 1 channel
+        # Duplikasi channel tunggal menjadi 3 channel
+        arr = np.concatenate([arr, arr, arr], axis=-1)
+
+    # 4. Normalisasi piksel ke rentang [0, 1]
+    arr /= 255.0
+
+    # 5. Tambahkan dimensi batch untuk input model
     arr = np.expand_dims(arr, axis=0)
     
-    print(f"🔍 DEBUG - Preprocessed image shape: {arr.shape}") # Untuk debugging di log
+    # Dijamin berbentuk (1, 224, 224, 3)
     return arr
 
 def predict(model, pil_img: Image.Image):
     """
-    Melakukan prediksi menggunakan model pada gambar yang sudah diproses.
+    Melakukan prediksi pada gambar yang sudah diproses.
     """
-    # Pra-pemrosesan gambar
     processed_image = preprocess_image(pil_img)
-    
-    # Lakukan prediksi (verbose=0 agar tidak mencetak log prediksi ke konsol)
     predictions = model.predict(processed_image, verbose=0)[0]
-    
-    # Dapatkan indeks kelas dengan probabilitas tertinggi
     predicted_index = int(np.argmax(predictions))
-    
-    # Dapatkan label kelas dan tingkat keyakinan
     label = CLASS_LABELS[predicted_index]
     confidence = float(predictions[predicted_index] * 100.0)
-    
     return label, confidence
 
 # --- Antarmuka Pengguna (UI) Streamlit ---
 
-# Judul Aplikasi
 st.markdown('<h2 style="text-align:center;color:#4a7c59;">🌱 Klasifikasi Tanaman Hias</h2>', unsafe_allow_html=True)
+
+# Pertama, pastikan model sudah terunduh
+download_model(MODEL_URL, MODEL_PATH)
 
 # Komponen untuk upload file
 uploaded_file = st.file_uploader(
@@ -104,43 +107,21 @@ uploaded_file = st.file_uploader(
     type=["jpg", "jpeg", "png"]
 )
 
-# Cek apakah pengguna sudah mengupload file
 if uploaded_file is None:
     st.info("Silakan upload sebuah gambar untuk memulai analisis.")
     st.stop()
 
-# ======================================================================
-# BAGIAN UTAMA PERBAIKAN: Konversi Gambar Dilakukan di Muka
-# ======================================================================
-
-# 1. Buka gambar dari file yang di-upload menggunakan PIL
+# Buka dan tampilkan gambar
 raw_image = Image.open(uploaded_file)
+st.image(raw_image, caption="📷 Gambar yang Di-upload", width=320)
 
-# 2. SEGERA konversi gambar ke format RGB. Ini adalah langkah kunci.
-#    Langkah ini memastikan semua gambar (termasuk PNG atau grayscale)
-#    memiliki 3 channel warna yang konsisten sebelum diproses lebih lanjut.
-rgb_image = raw_image.convert("RGB")
+# Muat model dari file lokal
+model = load_model_safe(MODEL_PATH)
 
-# 3. Tampilkan gambar yang sudah pasti RGB ke pengguna sebagai preview
-st.image(rgb_image, caption="📷 Gambar yang Di-upload", width=320)
-
-# ======================================================================
-
-# Memuat model AI (lazy loading, hanya dimuat saat dibutuhkan)
-download_model()
-
-try:
-    model = tf.keras.models.load_model(MODEL_PATH)
-except Exception as e:
-    st.error(f"Gagal memuat model: {e}")
-    st.stop()
-
-
-# Proses prediksi saat pengguna meng-upload gambar
+# Lakukan prediksi
 with st.spinner("🔍 Menganalisis gambar..."):
-    # Gunakan gambar yang sudah dikonversi (rgb_image) untuk prediksi
-    predicted_label, prediction_confidence = predict(model, rgb_image)
+    predicted_label, prediction_confidence = predict(model, raw_image)
     
-    # Tampilkan hasil prediksi
+    # Tampilkan hasil
     st.success(f"🌿 Jenis Tanaman: **{predicted_label}**")
     st.info(f"🔎 Tingkat Keyakinan: **{prediction_confidence:.2f}%**")
