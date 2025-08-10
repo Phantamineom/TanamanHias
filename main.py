@@ -6,7 +6,7 @@ import numpy as np
 # Fungsi load dan compile ulang model
 @st.cache_resource
 def load_model():
-    model = tf.keras.models.load_model('64B30E-ENB0-TanamanHias-v3.keras', compile=False)  # ganti sesuai nama filemu
+    model = tf.keras.models.load_model('64B30E-ENB0-tanamanHias-v3.keras', compile=False)  # ganti sesuai nama filemu
     # model.compile(
     #     optimizer=tf.keras.optimizers.Adam(),         # optimizer default
     #     loss='categorical_crossentropy',              # sesuaikan jika sparse_categorical_crossentropy
