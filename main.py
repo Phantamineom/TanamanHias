@@ -5,9 +5,11 @@ from PIL import Image
 import os
 import requests
 
-MODEL_PATH = "64B30E-ENB0-tanamanHias-v3-1.keras"
-MODEL_URL = "https://huggingface.co/Phantamineom/TanamanHias/resolve/main/64B30E-ENB0-tanamanHias-v3-1.keras"
-CLASS_NAMES = ['Aglaonema', 'Daisy', 'Dandelion','Jasmine', 'Lavender', 'Lily Flower', 'Rose', 'Sunflower', 'Tulip']
+MODEL_PATH = "64B30E-ENB0-tanamanHias-v3.keras"
+MODEL_URL = "https://huggingface.co/Phantamineom/TanamanHias/resolve/main/64B30E-ENB0-tanamanHias-v3.keras"
+CLASS_NAMES = ["Aglaonema", "Daisy", "Dandelion", "Jasmine", 
+               "Lavender", "Lily Flower","Rose", "Sunflower", "Tulip"]
+CONFIDENCE_THRESHOLD = 50.0
 
 def download_model(url, path):
     """
@@ -56,8 +58,8 @@ def preprocess_image(img: Image.Image):
     if img_array.shape[-1] == 1:
         img_array = np.concatenate([img_array, img_array, img_array], axis=-1)
 
-    # 4. Hapus normalisasi manual -> img_array = img_array / 255.0
-    # Model Anda sudah punya layer Rescaling.
+    # 4. Normalisasi manual -> img_array = img_array / 255.0
+    img_array = img_array / 255.0
 
     # 5. Tambahkan dimensi batch
     img_array = np.expand_dims(img_array, axis=0)
@@ -70,9 +72,11 @@ def predict(model, img: Image.Image):
     """
     processed_img = preprocess_image(img)
     preds = model.predict(processed_img)[0]
+
+    probabilities = np.argmax(preds)
     
-    pred_class = CLASS_NAMES[np.argmax(preds)]
-    pred_conf = np.max(preds) * 100
+    pred_class = CLASS_NAMES[probabilities]
+    pred_conf = preds[probabilities] * 100
     
     return pred_class, pred_conf
 
@@ -96,6 +100,6 @@ if uploaded_file:
 
     if st.button("Prediksi"):
         pred_class, pred_conf = predict(model, img)
-        st.success(f"**{pred_class}** — Keyakinan: {pred_conf:.2f}%")
+        st.success(f"**{pred_class}** — {pred_conf:.2f}%")
 else:
     st.info("Silakan upload gambar untuk memulai.")
