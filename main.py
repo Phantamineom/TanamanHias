@@ -5,8 +5,8 @@ from PIL import Image
 import os
 import requests
 
-MODEL_PATH = "64B30E-ENB0-tanamanHias-v3-1.keras"
-MODEL_URL = "https://huggingface.co/Phantamineom/TanamanHias/resolve/main/64B30E-ENB0-tanamanHias-v3-1.keras"
+MODEL_PATH = "64B30E-ENB0-tanamanHias-v3-1.h5"
+MODEL_URL = "https://huggingface.co/Phantamineom/TanamanHias/resolve/main/64B30E-ENB0-tanamanHias-v3-1.h5"
 CLASS_NAMES = ['Aglaonema', 'Daisy', 'Dandelion','Jasmine', 'Lavender', 'Lily Flower', 'Rose', 'Sunflower', 'Tulip']
 
 def download_model():
