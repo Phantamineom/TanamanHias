@@ -12,7 +12,7 @@ except ModuleNotFoundError:
     st.error("TensorFlow belum terpasang. Pastikan `tensorflow-cpu==2.16.1` ada di requirements.txt lalu redeploy.")
     st.stop()
 
-MODEL_PATH = "64B30E-ENB0-tanamanHias-v3.keras"
+MODEL_PATH = "64B20E-ENB0-tanamanHias-v3.keras"
 
 CLASS_LABELS = [
     "Aglaonema", "Daisy", "Dandelion", "Jasmine", "Lavender",
