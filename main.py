@@ -4,6 +4,7 @@ os.environ["KERAS_BACKEND"] = "tensorflow"  # Memastikan Keras menggunakan Tenso
 import streamlit as st
 from PIL import Image
 import numpy as np
+import requests
 
 # Import TensorFlow dengan penanganan error jika modul tidak ditemukan
 try:
@@ -17,11 +18,27 @@ except ModuleNotFoundError:
     st.stop()
 
 # --- Konfigurasi ---
+
 MODEL_PATH = "64B30E-ENB0-tanamanHias-v3.keras"
+MODEL_URL = "https://huggingface.co/Phantamineom/TanamanHias/resolve/main/64B30E-ENB0-tanamanHias-v3.keras"
 CLASS_LABELS = [
     "Aglaonema", "Daisy", "Dandelion", "Jasmine", "Lavender",
-    "Lily Flower", "Rose", "Sunflower", "Tulip"
-]
+    "Lily Flower", "Rose", "Sunflower", "Tulip"]
+
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        with st.spinner("Mengunduh model dari Hugging Face..."):
+            r = requests.get(MODEL_URL, stream=True)
+            if r.status_code == 200:
+                with open(MODEL_PATH, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+            else:
+                st.error("Gagal mengunduh model.")
+                st.stop()
+
+
+
 
 # --- Fungsi-Fungsi ---
 
@@ -110,7 +127,14 @@ st.image(rgb_image, caption="📷 Gambar yang Di-upload", width=320)
 # ======================================================================
 
 # Memuat model AI (lazy loading, hanya dimuat saat dibutuhkan)
-model = load_model_safe(MODEL_PATH)
+download_model()
+
+try:
+    model = tf.keras.models.load_model(MODEL_PATH)
+except Exception as e:
+    st.error(f"Gagal memuat model: {e}")
+    st.stop()
+
 
 # Proses prediksi saat pengguna meng-upload gambar
 with st.spinner("🔍 Menganalisis gambar..."):
