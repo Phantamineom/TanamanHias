@@ -1,90 +1,77 @@
+import os
+os.environ["KERAS_BACKEND"] = "tensorflow"  # hindari backend mismatch
+
 import streamlit as st
-import tensorflow as tf
 from PIL import Image
 import numpy as np
 
-# Fungsi load dan compile ulang model
-@st.cache_resource
-def load_model():
-    model = tf.keras.models.load_model('64B30E-ENB0-tanamanHias-v3.keras', compile=False)  # ganti sesuai nama filemu
+# --- Coba import TF dengan pesan ramah kalau gagal
+try:
+    import tensorflow as tf
+except ModuleNotFoundError:
+    st.error("TensorFlow belum terpasang. Pastikan `tensorflow-cpu==2.16.1` ada di requirements.txt lalu redeploy.")
+    st.stop()
+
+MODEL_PATH = "64B30E-ENB0-tanamanHias-v3.keras"
+
+CLASS_LABELS = [
+    "Aglaonema", "Daisy", "Dandelion", "Jasmine", "Lavender",
+    "Lily Flower", "Rose", "Sunflower", "Tulip"
+]
+
+@st.cache_resource(show_spinner=False)
+def load_model(path: str):
+    if not os.path.exists(path):
+        st.error(f"File model tidak ditemukan: `{path}`. Pastikan nama file benar dan ada di repo.")
+        st.stop()
+    # compile False untuk inferensi, lebih cepat dan aman
+    model = tf.keras.models.load_model(path, compile=False)
     return model
 
-model = load_model()
+def preprocess_image(pil_img: Image.Image) -> np.ndarray:
+    img = pil_img.convert("RGB").resize((224, 224))
+    arr = np.asarray(img, dtype=np.float32) / 255.0
+    return np.expand_dims(arr, axis=0)  # (1, 224, 224, 3)
 
+def predict(model, pil_img: Image.Image):
+    x = preprocess_image(pil_img)
+    preds = model.predict(x, verbose=0)[0]
+    idx = int(np.argmax(preds))
+    return CLASS_LABELS[idx], float(preds[idx] * 100.0)
 
-class_labels = [
-    "Aglaonema", "Daisy", "Dandelion", "Jasmine", "Lavender", 
-    "Lily Flower","Rose", "Sunflower", "Tulip"
-]
-# CSS styling
+# ---------- UI ----------
 st.markdown(
     """
     <style>
-    .main {
-        background-color: #f0f2f6;
-    }
-    .title {
-        text-align: center;
-        color: #4a7c59;
-        font-size: 2.5em;
-        margin-bottom: 10px;
-    }
-    .upload-area {
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        text-align: center;
-    }
+    .title { text-align:center;color:#4a7c59;font-size:2.2em;margin:6px 0 16px }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
-
-# App title
 st.markdown('<div class="title">🌱 Klasifikasi Tanaman Hias</div>', unsafe_allow_html=True)
 
-# Upload gambar
-# st.markdown('<div class="upload-area">', unsafe_allow_html=True)
-uploaded_file = st.file_uploader("Upload Foto Tanaman Hias", type=['jpg', 'jpeg', 'png'])
-# st.markdown('</div>', unsafe_allow_html=True)
+uploaded = st.file_uploader("Upload Foto Tanaman Hias", type=["jpg","jpeg","png"])
 
-# Fungsi untuk preprocess gambar
-def preprocess_image(image):
-    img = image.convert('RGB')                    
-    img = img.resize((224, 224))                   
-    img_array = np.array(img).astype(np.float32)   
-    img_array = img_array / 255.0                  # Normalisasi pixel 0-1
-    img_array = np.expand_dims(img_array, axis=0)  # Tambahkan batch dimension
-    return img_array
+if uploaded is None:
+    st.info("Silakan upload gambar dulu.")
+    st.stop()
 
-# Fungsi analisis gambar
-def analyze_image(image):
-    img_array = preprocess_image(image)
-    predictions = model.predict(img_array, verbose=0)[0]
-    top_idx = np.argmax(predictions)
-    top_label = class_labels[top_idx]
-    confidence = predictions[top_idx] * 100
-    return top_label, confidence
+# Load model saat dibutuhkan (setelah user upload)
+model = load_model(MODEL_PATH)
 
-# Kalau ada gambar di-upload
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="📷 Preview Gambar", width=300)
+img = Image.open(uploaded)
+st.image(img, caption="📷 Preview", width=320)
 
-    prediction_placeholder = st.empty()
+placeholder = st.empty()
+with st.spinner("🔍 Menganalisis gambar..."):
+    label, conf = predict(model, img)
+    with placeholder.container():
+        st.success(f"🌿 **Jenis Tanaman:** {label}")
+        st.info(f"🔎 **Tingkat Keyakinan:** {conf:.2f}%")
 
-    # Analisis gambar saat upload
-    with st.spinner('🔍 Menganalisis gambar...'):
-        top_label, confidence = analyze_image(image)
-        with prediction_placeholder.container():
-            st.success(f"🌿 **Jenis Tanaman:** {top_label}")
-            st.info(f"🔎 **Tingkat Keyakinan:** {confidence:.2f}%")
-
-    # Tombol Analisis Ulang
-    if st.button('🔄 Analisis Ulang'):
-        with st.spinner('🔍 Menganalisis ulang...'):
-            top_label, confidence = analyze_image(image)
-            with prediction_placeholder.container():
-                st.success(f"🌿 **Jenis Tanaman:** {top_label}")
-                st.info(f"🔎 **Tingkat Keyakinan:** {confidence:.2f}%")
+if st.button("🔄 Analisis Ulang"):
+    with st.spinner("🔁 Mengulang analisis..."):
+        label, conf = predict(model, img)
+        with placeholder.container():
+            st.success(f"🌿 **Jenis Tanaman:** {label}")
+            st.info(f"🔎 **Tingkat Keyakinan:** {conf:.2f}%")
