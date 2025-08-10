@@ -54,20 +54,28 @@ if uploaded is None:
     st.info("Silakan upload gambar dulu.")
     st.stop()
 
-# Load model setelah ada kebutuhan (lebih stabil di Streamlit Cloud)
-model = load_model_safe(MODEL_PATH)
+# ----- PERUBAIKAN UTAMA DI SINI -----
+# 1. Buka gambar dari file yang di-upload
+raw_img = Image.open(uploaded)
 
-# Baca gambar dari upload
-img = Image.open(uploaded)
-st.image(img, caption="📷 Preview", width=320)
+# 2. Langsung konversi ke RGB. Ini memastikan gambar selalu punya 3 channel.
+#    Ini adalah langkah paling krusial untuk memperbaiki error.
+rgb_img = raw_img.convert("RGB")
+
+# 3. Tampilkan gambar yang sudah pasti RGB ke pengguna
+st.image(rgb_img, caption="📷 Preview", width=320)
+# ------------------------------------
+
+# Load model setelah ada kebutuhan (lebih stabil di Streamlit Cloud)
+try:
+    model = load_model_safe(MODEL_PATH)
+except Exception as e:
+    st.error(f"Gagal memuat model. Error: {e}")
+    st.stop()
+
 
 with st.spinner("🔍 Menganalisis gambar..."):
-    label, conf = predict(model, img)
+    # 4. Gunakan gambar yang sudah dikonversi (rgb_img) untuk prediksi
+    label, conf = predict(model, rgb_img)
     st.success(f"🌿 Jenis Tanaman: {label}")
     st.info(f"🔎 Tingkat Keyakinan: {conf:.2f}%")
-
-if st.button("🔄 Analisis Ulang"):
-    with st.spinner("🔁 Mengulang analisis..."):
-        label, conf = predict(model, img)
-        st.success(f"🌿 Jenis Tanaman: {label}")
-        st.info(f"🔎 Tingkat Keyakinan: {conf:.2f}%")
