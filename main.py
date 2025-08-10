@@ -7,23 +7,10 @@ import numpy as np
 @st.cache_resource
 def load_model():
     model = tf.keras.models.load_model('64B30E-ENB0-tanamanHias-v3.keras', compile=False)  # ganti sesuai nama filemu
-    # model.compile(
-    #     optimizer=tf.keras.optimizers.Adam(),         # optimizer default
-    #     loss='categorical_crossentropy',              # sesuaikan jika sparse_categorical_crossentropy
-    #     metrics=['accuracy']
-    # )
     return model
 
 model = load_model()
 
-# Label klasifikasi
-# class_labels = [
-#     "Aglaonema", "Alyssum", "Aster", "Azalea", "Bergamot", "Cosmos", "Dahlia",
-#     "Daisy", "Dandelion", "Dieffenbacia", "Euphorbia", "Eustoma", "Gerbera",
-#     "Iris", "Ixora", "Jasmine", "Lavender", "Lily Flower", "Orchid", "Pansy",
-#     "Peony", "Polyanthus", "Rose", "Sage", "Snapdragon", "Sunflower",
-#     "Tuberose", "Tulip", "Viola"
-# ]
 
 class_labels = [
     "Aglaonema", "Daisy", "Dandelion", "Jasmine", "Lavender", 
