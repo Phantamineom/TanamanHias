@@ -45,23 +45,27 @@ def preprocess_image(img: Image.Image):
     Fungsi preprocessing "anti gagal".
     Memastikan gambar selalu berukuran (224, 224) dengan 3 channel warna (RGB).
     """
-    # 1. Ubah ukuran gambar
-    img = img.resize((224, 224))
-    
-    # 2. Konversi ke array NumPy
+    # 1. Konversi ke array NumPy terlebih dahulu untuk memeriksa channel
     img_array = np.array(img).astype(np.float32)
     
-    # 3. Paksa menjadi 3 Channel (Perbaikan Kunci untuk ValueError)
-    if img_array.ndim == 2:
-        img_array = np.expand_dims(img_array, axis=-1)
+    # 2. PERBAIKAN KUNCI: Tangani gambar RGBA (4 channel)
+    if img_array.shape[-1] == 4:
+        # Buang channel Alpha, ambil hanya 3 channel pertama (RGB)
+        img_array = img_array[:, :, :3]
+
+    # 3. Konversi kembali ke PIL Image untuk resize dan normalisasi yang konsisten
+    img = Image.fromarray(np.uint8(img_array))
     
-    if img_array.shape[-1] == 1:
-        img_array = np.concatenate([img_array, img_array, img_array], axis=-1)
-
-    # 4. Normalisasi manual -> img_array = img_array / 255.0
+    # 4. Pastikan gambar berwarna (RGB) dan ubah ukuran
+    img = img.convert('RGB').resize((224, 224))
+    
+    # 5. Konversi lagi ke array setelah diproses
+    img_array = np.array(img).astype(np.float32)
+    
+    # 6. Normalisasi manual (penting untuk akurasi model Anda)
     img_array = img_array / 255.0
-
-    # 5. Tambahkan dimensi batch
+    
+    # 7. Tambahkan dimensi batch
     img_array = np.expand_dims(img_array, axis=0)
     
     return img_array
